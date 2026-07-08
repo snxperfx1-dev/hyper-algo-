@@ -1,0 +1,1155 @@
+Look here on this, two photos on the chart of Bitcoin. You need to write instructions for Fable Claude for advanced structure implementation so the algo can read structure in an advanced manner just like I do. So the first screenshot shows gold, the Bitcoin breaking the four-hour structure to the left. So the algo needs to not only be tracking the time frame that's leading up to that break in structure because it determines where price is going to retest. But then also once price is retesting that, the how structure then sequences across time to build the next, in this example, after the four-hour structure is broken, the next higher low for continuation. So the second screenshot shows price successfully progressing. I have not marked the five-minute, 15-minute structural progression, but I have marked the 30-minute and one hour. The key principle here is each structural time leg needs to then also transition itself across time as well, not just the overall transition, each leg has to transition across time as well because when each leg is pulling back, it also has structure building, and obviously that needs to transition as well. So...
+
+Based on your annotations, the key insight isn't simply "track higher timeframe structure." It's that structure propagates hierarchically, and every impulse and every pullback has its own structural lifecycle that must mature before the next higher timeframe structure can form.
+
+I'd describe it to Claude something like this:
+
+Advanced Hierarchical Structure Engine
+Core Principle
+
+The market does not transition directly from one timeframe to another.
+
+Every structural transition is built from a sequence of lower-timeframe transitions.
+
+Think of structure as nested.
+
+4H Structure
+    └── 1H Leg
+            └── 30M Leg
+                    └── 15M Leg
+                            └── 5M Leg
+
+Each level must complete its own structural progression before the higher level is considered complete.
+
+The algorithm should never treat higher timeframe swings as isolated events.
+
+Instead, every higher timeframe swing is constructed by completed lower timeframe structure.
+
+Phase 1 — Detect the Leading Break
+
+When a major timeframe breaks structure (example: 4H BOS)
+
+Do NOT simply mark the BOS.
+
+Instead determine:
+
+What lower timeframe produced the BOS?
+Which impulse created the displacement?
+Which structure is currently leading price?
+
+Example
+
+4H BOS occurs.
+
+Leading timeframe may actually be:
+
+1H impulse
+↓
+
+30M continuation
+↓
+
+15M expansion
+↓
+
+5M execution
+
+This leading chain determines where price should eventually retrace.
+
+The BOS itself is only the beginning.
+
+Phase 2 — Build the Structural Tree
+
+Instead of storing swings independently
+
+Store them as a hierarchy.
+
+Example
+
+4H Higher High
+
+contains
+
+    1H impulse
+
+        contains
+
+            30M impulse
+
+                contains
+
+                    15M impulse
+
+                        contains
+
+                            5M impulse
+
+Every swing knows
+
+its parent
+its children
+whether it is expanding
+whether it has transitioned
+whether it is complete
+
+Structure becomes a tree rather than a list.
+
+Phase 3 — Retest Logic
+
+After the 4H BOS
+
+Price begins retracing.
+
+Do NOT immediately assume continuation.
+
+Instead ask
+
+Which timeframe is currently building?
+
+Example
+
+4H broke
+
+↓
+
+1H begins pullback
+
+↓
+
+30M begins pullback
+
+↓
+
+15M begins pullback
+
+↓
+
+5M builds first HL
+
+↓
+
+5M transitions bullish
+
+↓
+
+15M now has enough information
+
+↓
+
+15M transitions bullish
+
+↓
+
+30M now forms HL
+
+↓
+
+30M transitions
+
+↓
+
+1H finally forms HL
+
+↓
+
+Continuation begins
+
+The transition propagates upward.
+
+Never downward.
+
+Phase 4 — Every Pullback Has Structure
+
+Every correction contains another market.
+
+Example
+
+1H Pullback
+
+is not
+
+one candle.
+
+It contains
+
+30M
+
+↓
+
+15M
+
+↓
+
+5M
+
+Those structures must also transition.
+
+Meaning
+
+1H HL
+
+cannot exist
+
+until
+
+30M HL exists
+
+which cannot exist
+
+until
+
+15M HL exists
+
+which cannot exist
+
+until
+
+5M has transitioned.
+
+This is exactly what is happening in your screenshots.
+
+Phase 5 — Structural Promotion
+
+When one timeframe completes
+
+Promote that information upward.
+
+Example
+
+5M
+
+forms HH
+
+↓
+
+forms HL
+
+↓
+
+breaks previous HH
+
+↓
+
+Confirmed Bullish
+
+Now
+
+15M
+
+has enough evidence
+
+to classify
+
+its own HL.
+
+Later
+
+15M completes.
+
+↓
+
+30M updates.
+
+↓
+
+30M completes.
+
+↓
+
+1H updates.
+
+↓
+
+1H completes.
+
+Higher timeframe structure should only update after sufficient lower timeframe confirmation.
+
+Phase 6 — State Machine
+
+Each timeframe exists in one of several states.
+
+Searching
+
+↓
+
+Impulse
+
+↓
+
+Pullback
+
+↓
+
+Candidate HL
+
+↓
+
+Confirmed HL
+
+↓
+
+Expansion
+
+↓
+
+Completed Leg
+
+↓
+
+Waiting
+
+Every timeframe moves independently through these states.
+
+A 30M can still be building while
+
+1H is only waiting.
+
+Phase 7 — Leg-Based Sequencing
+
+Every impulse leg has its own lifecycle.
+
+Instead of thinking
+
+Trend
+
+↓
+
+Pullback
+
+↓
+
+Trend
+
+Think
+
+Impulse A
+
+↓
+
+Transition
+
+↓
+
+Impulse B
+
+↓
+
+Transition
+
+↓
+
+Impulse C
+
+↓
+
+Transition
+
+Every leg requires confirmation.
+
+Every leg has its own internal structure.
+
+Every leg contains lower timeframe sequencing.
+
+Phase 8 — Timeframe Dependency Rules
+
+A higher timeframe cannot confirm until the lower timeframe has transitioned.
+
+Example
+
+4H HH
+
+requires
+
+1H completion
+
+↓
+
+1H completion
+
+requires
+
+30M completion
+
+↓
+
+30M completion
+
+requires
+
+15M completion
+
+↓
+
+15M completion
+
+requires
+
+5M completion.
+
+This dependency chain prevents premature higher timeframe signals.
+
+Phase 9 — Market Memory
+
+The engine should remember
+
+Current HTF Bias
+
+↓
+
+Current Active Leg
+
+↓
+
+Leading Timeframe
+
+↓
+
+Leading Swing
+
+↓
+
+Current Pullback Timeframe
+
+↓
+
+Current Transition Timeframe
+
+↓
+
+Next Confirmation Timeframe
+
+This creates structural context instead of reacting to isolated swings.
+
+Phase 10 — Practical Example (Matching Your Charts)
+Step 1
+
+4H breaks bullish.
+
+Bias becomes bullish.
+
+Step 2
+
+Price begins retracing.
+
+The engine does not look for another 4H signal.
+
+Instead it follows the pullback down the hierarchy:
+
+1H Pullback
+
+↓
+
+30M Pullback
+
+↓
+
+15M Pullback
+
+↓
+
+5M Transition
+Step 3
+
+The 5M forms:
+
+Higher Low
+Higher High
+Bullish BOS
+
+Now the engine promotes that completed transition upward.
+
+Step 4
+
+The 15M now has sufficient information to establish its own Higher Low and continuation.
+
+Step 5
+
+The same process repeats:
+
+15M completes
+
+↓
+
+30M Higher Low confirmed
+
+↓
+
+30M expands
+
+↓
+
+1H Higher Low confirmed
+
+↓
+
+1H expands
+
+↓
+
+4H continuation confirmed.
+Fundamental Rule
+
+Structure is recursive. Every swing, regardless of timeframe, is composed of lower-timeframe swings that must complete their own transition before the parent structure is valid. A higher timeframe should never change state until the lower timeframe has fully completed its structural sequence. Trend progression therefore propagates upward through the timeframe hierarchy, while pullbacks propagate downward. The engine must continuously maintain this parent-child relationship so it always knows which timeframe is currently leading the market and which higher timeframe structure is being constructed.
+
+This recursive, state-driven approach closely reflects the logic shown in your Bitcoin examples: the 4H BOS establishes directional intent, but the continuation is not validated until the 1H builds a higher low, which itself depends on the 30M completing its higher low, which in turn depends on lower-timeframe transitions. The algorithm is therefore not just tracking market structure—it is tracking the construction of structure across nested timeframes, allowing it to identify where the market is within the structural build process rather than merely where it has already been.
+
+F72_Invariant_Engine_Spec(2)(2).md
+File
+There seems to be a nested relationship between the entry legs and the structure itself. And it's complicated, the matter becomes complicated because each time as structure is progressing across time, that leg itself needs to transition. So the algorithm should be able to track all of this and all these relationships in real time. Only once it can do that, then it can understand where it can enter and where it can't.On top of that, each time structure breaks or order flow leg breaks, a new curve is being formed. And therefore, if the algorithm decides to enter on a subsequent leg, then the curve principles come in play on top of structural relationships, order flow, entry, recursive leg relationships.
+
+I actually think you've identified the piece that most market structure algorithms miss. The relationship isn't simply:
+
+Higher timeframe → lower timeframe.
+
+It's actually recursive in two dimensions simultaneously:
+
+Structure recursively builds structure.
+Every order-flow leg recursively builds itself while it is building the parent structure.
+
+Those are different processes.
+
+I'd add a completely new invariant to the spec.
+
+Invariant 5 — Recursive Leg Evolution
+Core Principle
+
+A structural leg is not atomic.
+
+Every leg is itself an evolving market that must complete its own structural lifecycle before it is allowed to complete the parent structure.
+
+The engine must therefore track two recursive processes simultaneously:
+
+the parent structural transition
+the active order-flow leg that is currently constructing that transition
+
+These are coupled but not identical.
+
+Two Parallel State Machines
+
+The algorithm should never think there is only one market structure.
+
+There are always two.
+
+Structural State
+
+4H
+↓
+
+1H
+↓
+
+30M
+↓
+
+15M
+↓
+
+5M
+
+At the exact same time
+
+Current Order Flow Leg
+
+Impulse
+
+↓
+
+Pullback
+
+↓
+
+Transition
+
+↓
+
+Continuation
+
+↓
+
+Completion
+
+The structural state is asking
+
+Which higher timeframe is currently being built?
+
+The order flow state is asking
+
+How is the current leg evolving?
+
+These constantly interact.
+
+Parent-Child Relationship
+
+Suppose the 4H breaks.
+
+The engine should understand:
+
+4H
+
+waiting for
+
+1H HL
+
+But while waiting...
+
+1H HL
+
+is being built by
+
+30M
+
+Meanwhile
+
+30M HL
+
+is being built by
+
+15M
+
+Meanwhile
+
+15M HL
+
+is being built by
+
+5M
+
+Each of those is simultaneously undergoing its own impulse/pullback/transition cycle.
+
+Legs Have Their Own Internal Curves
+
+This is the important part.
+
+Every order-flow leg creates a new dealing range.
+
+That dealing range immediately creates a new curve.
+
+Example
+
+4H BOS
+
+↓
+
+1H Pullback
+
+↓
+
+30M Impulse
+
+↓
+
+30M Pullback
+
+↓
+
+15M Transition
+
+↓
+
+15M Impulse
+
+↓
+
+5M Entry
+
+Notice something.
+
+The 30M impulse itself has now generated:
+
+premium
+equilibrium
+discount
+
+inside that leg.
+
+So every completed impulse immediately creates a fresh curve.
+
+The engine therefore cannot continue using the previous curve.
+
+It must generate a new active curve object.
+
+Dynamic Curve Generation
+
+Every structural break creates a new dealing range.
+
+Every dealing range creates
+
+Premium
+
+Equilibrium
+
+Discount
+
+This curve is local to that structural leg.
+
+The parent curve still exists.
+
+Now there are multiple active curves.
+
+Example
+
+4H Curve
+
+contains
+
+1H Curve
+
+contains
+
+30M Curve
+
+contains
+
+15M Curve
+
+Each curve remains valid until invalidated by its own structural transition.
+
+The engine therefore tracks a hierarchy of curves, not a single premium/discount model.
+
+Curve Ownership
+
+Each active leg owns a curve.
+
+Example
+
+1H Leg
+
+owns
+
+Curve A
+
+During continuation
+
+30M Leg
+
+creates
+
+Curve B
+
+Later
+
+15M Leg
+
+creates
+
+Curve C
+
+Entries should reference the nearest active curve that still belongs to the current structural leg.
+
+Not necessarily the highest timeframe curve.
+
+Recursive Entry Logic
+
+The algorithm should never ask
+
+Is there an entry?
+
+Instead ask
+
+Which structural leg
+
+is currently constructing
+
+which higher timeframe?
+
+
+Then
+
+Which curve
+
+belongs to
+
+that leg?
+
+
+Then
+
+Has that leg
+
+completed
+
+its own transition?
+
+
+Only then
+
+Is entry permitted?
+
+This naturally prevents early entries.
+
+Structural Dependency Graph
+
+Instead of a linear sequence
+
+4H
+
+↓
+
+1H
+
+↓
+
+30M
+
+↓
+
+15M
+
+Think as a graph.
+
+4H Transition
+
+requires
+
+1H Completion
+
+requires
+
+30M Completion
+
+requires
+
+15M Completion
+
+requires
+
+5M Completion
+
+At every node
+
+Completion
+
+requires
+
+its own curve
+
+↓
+
+its own transition
+
+↓
+
+its own order flow
+
+↓
+
+its own confirmation
+
+So every node is recursively another copy of the entire engine.
+
+The Engine Becomes Self-Similar
+
+The engine should never distinguish between:
+
+a market
+a structural leg
+an entry leg
+
+They are all manifestations of the same process at different scales.
+
+Every active leg is simply a smaller market.
+
+Every market contains smaller legs.
+
+Every completed leg creates a new curve.
+
+Every curve governs the next transition.
+
+This recursive relationship continues until the lowest executable timeframe.
+
+A More General Principle
+
+I would actually elevate this to what I think is the highest-level law in the engine:
+
+Market structure is a recursive construction process. A higher-timeframe structure is not created directly; it emerges from the completion of lower-timeframe structural legs. Each of those legs is itself an independent market with its own structure, order flow, dealing range, premium/discount curve, energy cycle, and transition state. Every completed impulse generates a new local curve, and every pullback is governed first by that local curve before contributing to the parent structure. The engine must therefore maintain a live recursive graph of structures, legs, and curves, continuously updating their parent-child relationships in real time. Entries are not generated from isolated signals but emerge only when the active leg, its local curve, and the parent structural transition are simultaneously aligned.
+
+I think this is the missing conceptual layer that ties together everything in your specification. The current document has recursive structure, recursive campaigns, and recursive shifts, but it still treats the order-flow leg largely as a transition between states. What you're describing is deeper: the leg is itself a living structural object. It has its own lifecycle, owns its own curve, recursively spawns child legs, and only upon its completion can it "promote" its state to the parent structure. That turns the engine from a hierarchical state machine into a true recursive market model.
+
+When a new previous high, this is after the four hours broken, the main principle is that there is going to be structure that's going to have to progress across time. In addition, each leg is going to have to complete its transition. And where price is going to be going to for the pullback is based on the previous leg leading up to where the structure is breaking. And that will decide, because it would have not finished its recursive cycle, and therefore, it may be on its third or fourth shift before the previous structure in this four hours broken. And therefore, it becomes a complex interplay between previous structure that's breaking, the previous structure leading up to that break, and where it is on a cycle. Then the new leg and its recursion, and then the progression of structure across time on that leg, across that piece of section or price action as well.
+
+I think this is actually an even deeper principle than recursion. What you're describing is that the market has memory. A new structure does not begin from zero—it inherits unfinished obligations from the structure that created it.
+
+I'd write this as another invariant because it's fundamental to how the engine reasons.
+
+Invariant 6 — Structural Inheritance
+Core Principle
+
+A new structural break does not create a new independent market.
+
+It inherits the state of the structure that produced it.
+
+Every new leg carries forward unresolved structural obligations from its parent.
+
+Therefore, the engine must never reset its reasoning after a BOS.
+
+Instead, it must transfer state from the previous structural cycle into the new one.
+
+A Break Is a Handover, Not a Reset
+
+When the 4H breaks structure, most algorithms think:
+
+4H BOS
+
+↓
+
+Start New Trend
+
+That is incorrect.
+
+Instead:
+
+Previous 4H Cycle
+
+↓
+
+Creates BOS
+
+↓
+
+Transfers unresolved state
+
+↓
+
+New 4H Cycle begins
+
+The BOS is a handover between structural generations.
+
+The Previous Leg Determines The Future Pullback
+
+This is one of the most important ideas.
+
+The pullback after the BOS is not arbitrary.
+
+It is determined by the final order-flow leg that created the break.
+
+That leg already has:
+
+its own recursive state
+its own curve
+its own shift count
+its own unfinished transition
+
+The pullback returns into that unfinished process.
+
+The engine therefore asks:
+
+Which structural leg actually produced this BOS?
+
+Not
+
+Where is support?
+
+Every BOS Carries Historical Context
+
+Suppose:
+
+4H breaks bullish
+
+The engine must preserve:
+
+Leg L37
+
+↓
+
+Produced the BOS
+
+↓
+
+Currently on Shift 3
+
+↓
+
+Curve still active
+
+↓
+
+Transition incomplete
+
+↓
+
+Awaiting recursive completion
+
+That information does not disappear because a BOS occurred.
+
+It becomes part of the next market state.
+
+Two Simultaneous Structural Timelines
+
+After the BOS there are now two timelines.
+
+Timeline A
+
+The previous leg.
+
+Previous Leg
+
+↓
+
+Still completing
+
+↓
+
+Still owns unfinished recursion
+
+↓
+
+Still owns active curve
+Timeline B
+
+The new higher timeframe structure.
+
+New 4H Structure
+
+↓
+
+Needs
+
+1H HL
+
+↓
+
+30M HL
+
+↓
+
+15M HL
+
+These timelines evolve simultaneously.
+
+Neither replaces the other.
+
+Why Price Pulls Back
+
+The pullback exists because the previous leg has not completed.
+
+Its recursive transition is unfinished.
+
+Its energy cycle is unfinished.
+
+Its curve is unfinished.
+
+Its shift sequence is unfinished.
+
+Therefore the market returns to complete it.
+
+The pullback is a continuation of the previous leg's lifecycle, not merely a retracement of the new trend.
+
+Structural Inheritance Graph
+
+Instead of
+
+Old Structure
+
+↓
+
+New Structure
+
+Think
+
+Old Structure
+
+↓
+
+Final Leg
+
+↓
+
+Creates BOS
+
+↓
+
+Transfers State
+
+↓
+
+New Structure
+
+↓
+
+Pullback returns into inherited state
+
+The inheritance object should include:
+
+Parent Leg ID
+
+Current Shift
+
+Recursive State
+
+Curve
+
+Energy State
+
+Transition Status
+
+Structural Ownership
+
+Nothing is discarded.
+
+Dual Recursive Processes
+
+After every BOS, the engine must solve two recursive problems simultaneously.
+
+Process 1
+
+Build the new higher timeframe structure.
+
+4H
+
+↓
+
+1H
+
+↓
+
+30M
+
+↓
+
+15M
+
+↓
+
+5M
+Process 2
+
+Finish the previous delivery leg.
+
+Parent Leg
+
+↓
+
+Current Shift
+
+↓
+
+Remaining Shift
+
+↓
+
+Curve Completion
+
+↓
+
+Recursive Completion
+
+The entry only exists where these two recursive processes converge.
+
+The Entry Is The Intersection
+
+A valid entry is where:
+
+the inherited parent leg has completed its recursive obligations,
+the parent curve has reached the appropriate region,
+the new structural hierarchy has begun transitioning upward,
+the current execution leg has completed its own transition.
+
+Every one of those conditions is recursive.
+
+The Underlying Law
+
+I actually think this is the law your engine has been converging toward:
+
+The market is not a sequence of independent structures. It is a continuous chain of inherited structural cycles. Every break of structure is a transfer of ownership from one structural generation to the next. The final delivery leg that creates the break retains its recursive state, shift progression, curve, and unfinished obligations, and those inherited states govern where the new structure will retrace and how it can continue. The engine must therefore maintain both forward recursion (building the new higher-timeframe structure) and backward inheritance (completing the previous delivery leg). Entries emerge only when these inherited and emerging structural processes become aligned.
+
+This is a significant conceptual shift. Rather than thinking in terms of "current market structure," the engine should model the market as a continuous graph of inherited structural generations. Each generation passes unresolved state to the next, while the next simultaneously begins constructing its own recursive hierarchy. That means the algorithm is never simply reading what structure is—it is tracking what has been inherited, what is still unfinished, and what is currently being built, all at the same time. That is the interplay you are seeing on your charts.

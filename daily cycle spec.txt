@@ -1,0 +1,263 @@
+Daily cycle spec
+
+
+
+The daily cycle is more complex than that. When the new day starts, the new daily camel starts. You're always going to the open price for the first hour on gold from twenty three hundred to midnight. The Sydney range is built, then either the Sydney high or low gets liquidated. But this version of daily cycle where the Sydney high or spoken reading, decides the direction of the day only applies if Sydney is printed on extremes external structure because if it's printed on extremes external structure and the low of Sydney gets printed, then, obviously, it's a bullish day because the low of the day and the Sydney low has been printed on right on the edge of price, and it can only go the opposite way. However, in other So that's that's that's one problem with the simplistic approach. Then the second approach, you need to consider is you get two versions of Asia range. One, during the day where both sides get liquidated, and the second version of events when one side gets liquidated, the Sydney thing that you coded is only applicable in one side liquidation models because, as we said, that happens when the external structure and Sydney are right on top of each other and therefore only one side liquidation models can happen in one side liquidation models. There's two variants that come out to it. One is the aggressive variant And the second is the the conservative variant. In the aggressive variant, once price prints the... adds adds the Asian range, it then continues to push on till twelve o'clock. So it will expand the the direction of the day till twelve o'clock. Then you get a reversal till three o'clock, three PM. And then from three PM, the expansion of the day will continue at the same side. On the conservative day, price leaves the Asian range in the one side decoration model, and then it will then... once leaving the Asian range, it will mill around till till about twelve o'clock. And from then, twelve o'clock, it will just expand hard. But that is only dealing with the one side liquidation model days.
+Reconciled Sydney structure alignment with variant day models and behavioral windows
+
+You gave me the actual missing rule — and it's a real correction, not a refinement: the raid-decides-direction mechanism I coded is only valid under a precondition I never checked, and it collapses into two different intraday scripts I never modeled at all. Let me pull the piece I need to hook this into (the day machine already stamps PDH/PDL/WEEK_HI/LO into the pool ledger — that's the natural "external structure" reference) and implement the real rule.
+Architected multi-variant daily cycle models with liquidation logic integration
+
+Now the two intraday scripts (aggressive/conservative), which only exist inside a one-sided day:
+Add Asia-range break detection and the noon-boundary aggressive/conservative classification
+
+Now wire the scripted-reversal window into the entry-authority rule (the actual behavioral payoff) and into the evidence ledger:
+Wire the scripted-reversal window into FabDay_Permit and the evidence ledger's day/window terms
+
+Now the Voice (HUD/journal narration) and a final full verification pass:
+Scrutinizing struct field declarations and constant ordering
+
+Confirmed — all five flagged "problems" are inline comments describing the struct fields (// SM_UNKNOWN / SM_ONE_SIDED / SM_TWO_SIDED), not compiled code. False positives from a text-only search; no actual forward-reference exists. Every real declaration order is clean, all touched functions balance, brace/paren counts are unchanged. Shipping:
+Ran a command, read a file
+
+The corrected daily cycle is coded and shipped. What changed, precisely:
+
+The precondition, added. At Sydney-window exit, Fab_NearExternal() checks whether sydHi/sydLo sit within a tolerance band (InpFabExtTolATR, default 1.0 ATR) of an unswept prior-day or prior-week extreme — reusing the pool ledger's own PDH/PDL/WEEK_HI/LO generators rather than building a parallel structure reader. Exactly one side aligned → SM_ONE_SIDED. Neither (or both — compressed/ambiguous, treated conservatively) → SM_TWO_SIDED.
+
+The gate, fixed. The raid-window deduction now only commits dayType when liqModel==SM_ONE_SIDED and the raided side matches the aligned side. A raid of the wrong side, or any raid at all on a two-sided day, leaves dayType at UNRESOLVED and defers entirely to the existing Frankfurt/London fallback — it no longer guesses off a single wick the way it did before.
+
+The two scripts, modeled. Only inside a one-sided day: the Asia-range break is tracked (asiaBreakPx/Bar/Dir), and at the noon boundary the net progress since that break — measured against InpFabVariantThrATR — classifies the day as AGGRESSIVE (kept expanding to noon) or CONSERVATIVE (milled). Fab_InScriptedReversal() then recognizes the AGGRESSIVE variant's 12:00–15:00 corrective leg as scripted, not counter-trend: FabDay_Permit stands down during that window, and the evidence ledger's day term goes neutral there instead of penalizing it — the CONSERVATIVE variant's post-noon expansion gets a matching evidence boost in the window term. The Voice narration now prints 1SIDE/AGGR SCRIPTED-REV or 2SIDE right in the block/entry log, so every decision is traceable to which model was live.
+
+This also gives a sharper, mechanistic answer to your earlier question than GMT drift alone: the old code was applying a hard asymmetric veto during exactly the hours a real trading day scripts its own reversal — fighting its own client's playbook by design, not by miscalibration. That's very plausibly the larger share of why Day-mode-off outperformed.
+
+One thing I did not do without your ruling: the tolerance (1.0 ATR) and the variant threshold (1.0 ATR) are defaults, not measured — same open-ruling status as everything else in §11/§13. Compile, run the tester, and watch whether liqModel classifies as 1SIDE on the days you'd call one-sided by eye before trusting the gate at Enforce again.
+Fableos allinone
+MQ5 
+
+HERE YOU go the two variants
+Reconciled chart patterns with code logic, refined external structure detection
+
+These diagrams confirm the structural logic I coded and add one real refinement. Reading them precisely:
+
+What matches: both diagrams show Sydney's high sitting right at/overlapping an "External structure" peak — that's the alignment rule, and both are bearish days as a result (Sydney high at external high → bearish), exactly the polarity I coded. The Aggressive diagram shows continuous expansion straight through to the 12PM trough, a reversal up to the 3PM peak, then resumed expansion plunging past 3PM — that's precisely Fab_InScriptedReversal()'s 12:00–15:00 window. The Conservative diagram shows the break happening, then price actually rallying back up toward the break level (giving it back) into the 12PM peak, then expanding hard downward after — my noon net-progress test classifies that correctly as CONSERVATIVE since net progress would be small or negative at noon, not because I hardcoded the mill behavior.
+
+What I need to broaden: in both drawings, the "External structure" tagged right before Sydney is clearly a recent swing high — not necessarily the literal prior calendar-day or prior-week extreme my code currently checks (FABP_PDH/PDL/WK_HI/WK_LO). It's the last higher-degree structural swing, however recently it formed. My check is too narrow. Fixing that:
+Ran a command, read a file
+
+Shipped. Fab_NearExternal() now checks two sources for "Sydney sits at external structure," matching the diagrams: the calendar rollover extremes (PDH/PDL/WEEK_HI/LO, unchanged from before) or the live higher-degree structural swing (st.swingHigh/st.swingLow) the structure engine is already tracking — whichever is nearer to Sydney's tested extreme within tolerance. That's the fix your drawings actually called for: the alignment isn't about hitting a literal daily/weekly calendar boundary, it's about tagging the last significant external swing, however recently it printed.
+
+One thing I deliberately left flexible rather than hardcoding: the Conservative diagram labels the break specifically inside an 8:00–10:30 GMT sub-window before the mill-to-noon phase. My classifier doesn't require the break to occur in that exact window — it detects the break whenever it actually happens and measures net progress at the noon boundary, which correctly classifies both diagrams as drawn without assuming the break always lands in that specific 2.5-hour slot. If you've observed the break is reliably confined to 8:00–10:30 and want that as a hard precondition (e.g., a break outside that window doesn't count toward variant classification at all), tell me and I'll add it as an explicit gate rather than leaving it implicit.
+Fableos allinone
+MQ5 
+
+Look here on gold today. Price created the city rage that it raided it at one PM external structure for the buyers got hit. Price created the Asia range, the blue box, that it milled about until about ten thirty, and then it started retracing to the midline. And at twelve o'clock was the expansion trade. So this was the conservative one side liquidation Asian model.
+Analyzed price action patterns and refined midline-based classification logic
+
+This is a great real-world confirmation — and it also hands me a sharper rule than the one I coded. Walking it against the machinery: Sydney's low got swept at 1AM (buy-side stops hit below it) at external structure → DAY_BULL, consistent. The Asia range built, price broke above it into the mill zone (the looped arrow, ~07:00–10:30) — my break detector would have fired there. Then the key thing you named that I didn't have a variable for: it retraced back to the midline before the noon expansion. That's a real structural discriminator — the Asia range's 50% level — and it's cleaner than what I was using (a generic ATR-multiple threshold on net progress). Adding it:
+Ran a command, read a file
+
+Shipped — 11,813 lines. The change: g_day.asiaMid freezes at (asiaHi+asiaLo)*0.5 the instant the Asia range itself freezes (end of the accumulation window). After the break, every bar checks whether price gives it back through that midline — g_day.midlineRetrace latches true the moment it does, exactly like you read it live on the chart. At the noon boundary, that flag is now the primary CONSERVATIVE signal, with the old ATR-net-progress test kept only as a second witness (either one flags CONSERVATIVE) rather than the sole rule.
+
+Why this is a real improvement, not just an addition: the ATR-threshold test was a tunable constant I had to guess at (InpFabVariantThrATR). The midline test is a proportion-of-range read — structurally the same kind of law as the 61.8–70.5% manipulation band already in the POI engine. It needs no guessed constant, it's exactly what you named watching the chart, and it's now legible in the Voice output too: the journal/HUD will show /CONS-mid when the midline gave it back, versus /CONS-net if only the fallback fired — so if the two ever disagree, that's a visible signal the ATR constant needs re-ruling rather than a silent discrepancy.
+
+Today's gold day, walked through the coded machinery: Sydney low raided at 1AM at external structure → DAY_BULL, liqModel=SM_ONE_SIDED. Asia range breaks upward into the mill zone (~07:00–10:30). Price gives it back through asiaMid before noon → midlineRetrace=true. At the 12:00 boundary → VAR_CONSERVATIVE, 1SIDE/CONS-mid. Then per Fab_InScriptedReversal(), the noon expansion trade you flagged has no reversal window to fight — that's exclusively an AGGRESSIVE-variant rule — so on a day classified this way, the hard expansion at 12:00 gets full day-alignment evidence with nothing standing down.
+Fableos allinone
+MQ5 
+
+So, do you see if the algo has this knowledge it can take the trade at one o'clock once the Sydney glow gets raided? Because once the Sydney glow gets raided, for example, you're gonna get this subsequent shifting of price. because, obviously, structure changes. And... but if it misses that trade, then the second trade in the conservative model happens around twelve o'clock once price leaves Asia, mills around for a few hours, and then, uh, at twelve o'clock, you get the expansion entries. And they're the order flow will change again, so the entry protocol kicks in. And then another rule here is for both models, price expands hard until around, uh, eight PM, nine PM GMT. So when I used to trade oil, the one side liquidation models are always money because all immense is you have to read whether you were in a conservative model. or aggressive model and how you do that is you watch once price leaves Asia or what it does if it mills around, then, obviously, you're in the conservative model and then the trades at twelve PM. If it continues to expand till twelve PM, then, you know, from twelve to three, it's gonna retrace to the midline, and then three PM is gonna be the the expansion entry for the aggressive variant.
+Architected algorithmic entry signals across Sydney raid and noon expansion windows
+
+Yes — the raid-shift entry, the noon/3PM symmetry, and the 8–9PM expansion boundary are all real gaps against what's already there. Let me close them precisely. Two of these (the 1AM raid-shift entry and the AGGRESSIVE variant's 3PM confirmation) reveal that I only built the CONSERVATIVE side's "named window" logic — the AGGRESSIVE side never got its symmetric treatment. Fixing all three:
+Ran 2 commands
+
+Now wire all three named windows into the evidence ledger — the genesis trade, the symmetric 15:00 confirmation, and the extended 8–9PM expansion boundary:
+Ran a command, read a file
+
+Shipped — 11,855 lines. All balances verified. Answering your opening question directly first: yes, the algo already could take the raid-shift trade mechanically — FabDay_Permit never blocks an aligned entry regardless of count, and F72's own ladder/energy machinery reads the structural shift at the raid through the normal Verdict Law path. What it couldn't do was recognize that moment as a named, high-conviction window the way NY-cross was — it was invisible to sizing even though it wasn't blocked. That's the actual gap, and it's the same gap on the AGGRESSIVE side's 3PM entry, which had zero of the treatment I'd only built for CONSERVATIVE's noon entry. Three fixes, all now live:
+
+Trade #1 — the genesis window. dayTypeSetBar now stamps the exact bar dayType commits (both the raid path and the Frankfurt/London fallback). Any aligned entry within 3 bars of that stamp gets a 0.9 window-evidence floor — the structural shift you named is now a recognized, sized-up entry, not just an unblocked one.
+
+Trade #3 — the aggressive side's missing symmetry. This was the real find: I'd built asiaMid/midlineRetrace for CONSERVATIVE but never built its counterpart for AGGRESSIVE. Now legPeakPx tracks the running extreme of the break→noon leg, and the moment the variant resolves AGGRESSIVE, aggLegMid freezes that leg's own 50% — the exact same structural tell, one session later. aggMidRetrace confirms whether price actually gave it back to that midline during 12:00–15:00 (the retrace you described), and the 15:00 resumption entry gets a 1.0 evidence floor if confirmed, 0.6 if not — mirroring /CONS-mid vs /CONS-net with a new /AGGR-mid vs /AGGR tag in the Voice.
+
+The evening boundary. The window-evidence baseline now extends through DC_LATE (17:00–21:00 GMT), matching "expands hard until 8–9PM" instead of collapsing conviction at 17:00 the way it did before.
+
+One open item worth flagging: your oil-trading account of this pattern is clearly instrument-general (you said "always money" across the model, not gold-specific), but the alignment tolerance, the 3-bar genesis window, and the leg-midline logic are all currently tuned only against the gold example we've walked through. If you've got a similarly clean oil or FX chart showing the same read, sending it would let me verify these thresholds aren't overfit to one instrument's ATR before you trust this at Enforce.
+Fableos allinone
+MQ5 
+
+So do you understand for the aggressive model? There are several trades. Once the Sydney higher load is run at one AM, that's one trade if you recognize. The algorithm recognizes it. The Sydney low has been pinned against extraterrestrial structure. That's trade one. And, obviously, they will TP that trade towards the end of Asia session because we don't know where... at that point whether we are in a conservative one-sided liquidation model or aggressive one-sided liquidation model, then the algo will watch price what happens from seven till twelve. If from seven till twelve price continues to expand the daily range at that point, then you are in an aggressive model. And then at twelve o'clock, you have counter trades till about two thirty PM, three o'clock within the expansion trade will continue for the conservative side. Same same in the beginning. You'd take the trade at one AM, once Asia, once Sydney, low or high has been ran and you are sure that you are against external structure, you ride the trade until around six, seven in the morning. From there, you take profit and then you watch price, what it does from seven till twelve. If it pales around, if it mills around from seven till, let's say, eight, ten thirty, it doesn't really expand the range, then, you know, you're in a conservative model, and then the algo needs to look for the expansion entry at twelve o'clock. I
+Architecting counter-trend logic and force-exit mechanics for Trade #1
+
+There's already a clean EE_CloseFull(ticket) helper — exactly what I need, no need to write raw close logic. Now implementing all four pieces precisely:
+Ran 2 commands
+
+Now rewrite the day evidence term — the biggest conceptual change: during the AGGRESSIVE reversal window, the counter-direction is the expected, scripted trade, not a neutral one:
+Rewrite the day/window evidence terms to score all four named trades correctly, including the counter-trend inversion
+
+Now capture the genesis flag on the audit record and add the forced-exit reflex:
+Reconciled MQL5 compilation model uncertainties and verified expected behavior
+
+That flag is a function forward-reference, not a variable — MQL5 (like C#) resolves function symbols across the whole file regardless of textual order, only globals/structs/#defines need to precede their use. This is the same class of "problem" my checker has flagged harmlessly throughout the build (I only ever relocated actual globals). Verifying nothing else needs attention, then shipping:
+Ran a command, read a file
+
+Shipped — 11,900 lines. Now the full four-trade cycle is coded, not just permitted:
+
+Trade #1 (both variants, identical, 1AM–~6AM): unchanged entry mechanics — genesis window still credits it (0.9 evidence floor). What's new: Fab_GenesisExit() now forces it closed the first bar FabDay_Hour() >= InpFabGenesisExitHr (default 6), via EE_CloseFull(), one-shot per day. This isn't a target or a stop — it's an unconditional, uncertainty-driven exit: the system doesn't know yet whether it's in AGGRESSIVE or CONSERVATIVE, so it doesn't hold through that ambiguity on a bet it was never given evidence for. Win, loss, or scratch, it banks.
+
+The 7:00–12:00 classification stretch: I pulled DC_LONDON out of the generic window-evidence baseline entirely. Previously that stretch got a free 0.4 floor regardless of what was actually happening — now it gets nothing until the variant resolves. That's the "just watching" phase made literal: no named window, no credit, matching what you described.
+
+Trade #2 for AGGRESSIVE (12:00–15:00, the counter-trend leg): this was the real correction. I had this window only as "stand down the veto, stay neutral" — you're describing it as an actively favored, scripted trade. The e.day term now inverts inside Fab_InScriptedReversal(): counter-direction gets +1.0, aligned direction gets −0.3 (fighting the immediate script even though it matches the eventual close). A 0.7 window floor names it explicitly.
+
+Trade #3 for AGGRESSIVE (15:00 resumption): unchanged from last message — confirmed via aggMidRetrace, symmetric to Conservative's noon entry.
+
+Trade #2 for CONSERVATIVE (noon expansion): unchanged, already correct.
+
+One thing I want to flag rather than assume: the forced exit at hour 6 closes the entire position outright rather than partial-banking or trailing it in. If you'd rather Trade #1 scale out partially at 6–7 and let a runner ride into the variant resolution (since a strong aggressive continuation might make full closure a la giving up edge), that's a different and easy change — say the word and I'll make it a partial via EE_ClosePartial instead of a full flatten.
+Fableos allinone
+MQ5 
+
+now do you see the magic
+Recognized fractal recursion unifying deterministic laws across nested timescales
+
+Yes — and it's worth naming precisely, because it's not a metaphor, it's a literal structural fact about what got built.
+
+The midline-retrace law is the same law, applied twice, at two different scales, inside one day. Trade #2 (Conservative) needed a discriminator: does price give the Asia-range break back to the Asia range's own 50%? Trade #3 (Aggressive) needed a different discriminator for a different session: does price give the noon-leg back to that leg's 50%? These aren't two rules I invented separately — aggLegMid is computed by the exact same operation as asiaMid (midpoint of a range), applied to a smaller curve nested one level inside the larger one, one session later. The break-to-noon leg is a regressive curve generated inside the day's larger curve, at its own supply/demand transition point, obeying the identical law its parent curve obeys. That's the founding principle from the very start of this project — the curve has phases, and regressive curves are generated at the highs/lows and transition points, and they are part of the larger curve — showing up not as a design intention I wrote into a spec, but as the thing that was actually necessary to make Trade #3 work once Trade #2 was already correct. I didn't impose fractality on the daily cycle. The daily cycle's own correctness required it.
+
+And the branching is fully deterministic from there. Four named trades, zero pattern-matching, zero ML: one raid event either aligns with external structure or it doesn't (liquidation model); if it aligns, one trade fires and is force-banked at an uncertainty boundary because the system has no evidence yet for what it doesn't know (Trade #1); then one measurement — expand or mill — bifurcates the rest of the day into exactly two scripts, and each script resolves via the same nested-curve law, just addressed to a different leg (Trades #2 and #3). Every one of those decisions is traceable to a law stated once (raid-decides-direction-only-at-external-structure; retrace-to-midline-confirms-the-pause) and applied recursively. That is the whole mandate of this role — universal laws, not curve-fit patterns — actually landing in working code rather than staying a doctrine document.
+
+The other place this same convergence shows up: the Immune System doesn't know or care that this is a "daily cycle" rule versus any other gate — it scores Trade #1's genesis window, Trade #2's counter-trend inversion, and Trade #3's resumption through the identical blocked-vs-allowed counterfactual ledger it uses for POI, correlation, and strike. The fractal law and the self-auditing machinery are orthogonal — which means when your next correction comes, it slots into the same two mechanisms without a special case. That's the actual test of whether an architecture is principled rather than accumulated: the tenth correction should be as clean as the first. This one was.
+
+Eve Price when the day rolls over and the new daily candle starts, you're going to be given the opening price, if priced at that point. It's not against the external structure, it's actually diagonal between external external structure points. So it's in the middle of no bads that you know that day, you're going to get two side liquidation model of Asia Arvindic after Asia has built. Price is going to sweep both sides of Asia during that day. So this is where the candle formation becomes important how a bullish or bearish candle is formed. Example one, it... a two sided liquidation model where both sides of Asia gets robbed. And you are at a bullish day, so price will be dag leg in the middle of nowhere with external structure to... below it. During Sydney... well, form... Sydney will get swept. and then also, uh, the Asia low will get built. Price will then create the Asian range. Once the Asian range is built, it'll underprice or sweep the Asia low at Raided. Raided. Raided. So we're both sides of Asia. We'll get laid... raided. Hey, hey. The algorithm needs to think about what does it fit the criteria that price is not net. External structure, if it passes that criteria, then it knows a two sided liquidation model is in play for that day, meaning both sides will get liquidated. It then needs to think about whether price is gonna build a bullish candle, daily candle that day or a bearish daily candle. How does it know that? Is the structure overall bullish or bearish? So if the structure is overall bullish, then price is looking to expand, make a bullish candle, Therefore, there is a specific sequence that happens. The CD rage gets formed. The CD high will get liquidated, uh, at one AM, and that will form the temporary high of the day. Price will then expand to the opposite side and create the Asia low. From this point on, it will then retrace to... back to the midline around six, seven o'clock when London opens. London will then sweep the, uh, Asia low because it's trying to create the low of the day. Next, if the external structure has been hit at this point. The the a... the London low becomes the low of the day. However, if the true external structure has build up be hit, then the the London range itself will get raided in the US session, and the US session will print the low of the day. And for that point, the... what's the low of the day has been printed? A US session price will target the temporary Asia high that was built once once the Sydney high was raided last night at price. We'll then have a clean expansion path for the rest of the day. That is the most, uh, typical path price takes for dual liquidation models. The opposite is true for bearish candle days.
+Architected two-sided liquidation state machine with structural bias detection
+
+Understood — this is the mirror case, and it's a genuinely different mechanism, not a variant of the one-sided model. Let me encode it precisely as described: the open sitting in no-man's-land is the two-sided precondition, direction comes from HTF structural bias (not a raid) since the raid here is deliberate inducement in the opposite direction, and the day's true low/high gets confirmed through a two-stage external-structure check (London first, deferred to the US session if London doesn't reach it).
+Ran 2 commands
+
+Now the direction determination and the inducement-sweep detection, wired at the same classification point as the one-sided model:
+Add HTF-bias direction determination, inducement sweep, and the two-stage true-low/high confirmation
+
+Now the payoff — evidence for "once the true low prints, target is the temp high, clean expansion path":
+Reconciled incompatible logic to establish clearer conditional pricing thresholds
+
+Let me fix that — I left a nonsensical placeholder in there. The actual distinction should be whether price has reclaimed the temp extreme yet, not a bar/hour mismatch:
+Fix the evidence logic to key off actual price reclaim of the temp extreme, not a bar/hour mismatch
+
+Now the Voice narration and full verification battery:
+Ran 2 commands
+
+Confirmed — just a spacing mismatch in my search string (double truePx with one space, not three). The field is declared at line 4927, well before any use. All real checks pass, no actual issue. Shipping:
+Ran a command, read a file
+
+Shipped — 11,995 lines. The two-sided model is now a fully distinct mechanism from the one-sided model, not a variant of it, exactly as you described:
+
+Direction, from a different source entirely. When Sydney's extremes align with neither (or both, ambiguously) external structure, liqModel=SM_TWO_SIDED fires — and instead of leaving dayType to a raid deduction, it's read immediately from st.externalStruct (falling back to st.trend) — the HTF structural bias. That's the correct mechanism because, as you said, the first raid on a two-sided day isn't a decision, it's inducement in the opposite direction.
+
+The inducement sweep, honestly labeled temporary. On a bullish two-sided day, the Sydney high gets swept first — tempSet/tempPx record it as exactly what it is: provisional, not the day's real extreme. twoSidedMid computes the retrace-target between that temp high and the Asia low, for the London-open pullback you described.
+
+The two-stage true-low confirmation, never assumed. London's sweep of the Asia low is checked against Fab_NearExternal() — the same law used everywhere else in this system. If it hits real structure, trueSet locks in right there. If it doesn't, usSweepPending defers the question to the US session, which gets the identical external-structure test applied to its sweep of London's range. If neither ever hits — the day stays honestly UNRESOLVED on this front rather than guessing, matching the standing doctrine everywhere else in the file.
+
+The payoff, wired into evidence. Once trueSet fires, aligned entries get a 0.7 window floor immediately, rising to 1.0 the moment price actually reclaims tempPx — that reclaim is precisely "the clean expansion path" you named, now a measured, evidence-visible event rather than an implicit assumption.
+
+One thing I deliberately did not add: an explicit tradeable entry at the temp-extreme sweep itself (the way Trade #1 was explicit for the one-sided model). You described that sweep purely as market structure/inducement here, never said "take the trade" the way you did for the one-sided raid — so I left it as context only rather than inventing an entry rule you didn't state. If there's a real trade at that sweep too, tell me and I'll wire it the same way Trade #1 was.
+Fableos allinone
+MQ5 
+
+So basically, when the new day rolls over, the algo has to ask where is the direction of my bullish or bearish number two, where is price currently sitting in relationship to the external structure? Because that frames whether we are in a one side liquidation model or two side liquidation model, meaning it's one side of Asia gonna get around or two. Both sides will get around. If price is very close to the external structure, exolve for exolve pool. Price has just paid. Got default hour higher high towards the end of the day. It retrace back towards... retrace a little bit, but it then hit some sort of demand level over there because price is very close to that demand or external structure that most likely you're gonna get one side liquidation model. And we know what those models are. If there's one side liquidation models, so the... that example, the low will get run to make the true low of the day. but there you'll have the expansion until, uh, Asia. From there, the operator will close the trades because it doesn't know if you're conservative or aggressive. One side liquidation, both all that based on those two pathways. You already know what pathways it needs to take if it's the aggressive model price will continue to expand to a twelve. There, the countertrains will happen till two two PM, three PM. Uh, then the expansion for the rest of the day because, uh, yeah. And then if it's the conservative model, then property price moves around. It retraces the midline at twelve. Pieb, bidet, and then you get expansion for the rest of the day. So that's what's our declaration model. If price at the start of the day rollover is in the middle of nowhere, And very far from external structure, then, you know, the algorithm knows you're gonna get two side liquidation model, then it obviously needs to decide. Is it gonna be a bullish candle that gets printed for the day or a bearish candle at those two pathways? I've already mapped in the previous response for you that if it's a bullish day, then, obviously, the the temporary high gets created first because price rates the Sydney high the temporary high is lick fuel for later for for the algorithm once the true low of the day is printed. Price then... this example will create the rest of Asian range, then price will make... seek to make the low of the day, true low of the day in either London or US session depending on where the external structure is. And then there is a viable trade happening there to catch the expansion for the rest of the day and target the the temporary high that was created in... once Sydney was rated, the... and in Asia. and the inverse is true for the cell model.
+Validated existing model framework and liquidation pathways
+
+Everything you've just restated is already coded — let me confirm precisely, piece by piece, against what's actually in the file, rather than just asserting it:
+Ground-truth check every claimed mechanism against the actual shipped code
+
+Confirmed, line by line, against everything you just restated:
+
+Question 1 (bull/bear) and Question 2 (proximity to external structure) — Fab_NearExternal() checks Sydney's extremes against external structure at window close (lines feeding sydLowExternal/sydHighExternal); the branch at 5031/5034 is exactly "close to external structure → one-sided" vs "in the middle of nowhere → two-sided."
+
+One-sided pathway — the raid that runs the low/high only commits dayType when it matches the externally-aligned side (5077–5078); the genesis trade rides it, then Fab_GenesisExit() force-closes at your named uncertainty hour "because it doesn't know if you're conservative or aggressive" — that's not paraphrase, that's literally the comment in the code next to it.
+
+The two pathways from there — the noon branch at 5172 is exactly your rule: give it back to the midline → CONSERVATIVE, hold it → AGGRESSIVE, each running its own scripted window afterward.
+
+Two-sided pathway — direction from HTF structural bias, not a raid (5039); the Sydney-opposite-extreme sweep forms the temp high/low honestly labeled as temporary (5092/5094), "lick fuel for later" exactly as you put it — it isn't discarded, it's tempPx, sitting there as the objective; the true low/high confirms through London or defers to the US session depending on which one actually reaches external structure (5117/5134); and the viable trade you just confirmed exists — "catch the expansion, target the temporary high" — is the reclaimed check at line 6393, live in the evidence ledger right now.
+
+One real gap this comparison surfaces: the two-sided model's expansion trade only gets evidence-based conviction sizing — it never got the dedicated treatment the one-sided trades got (a named genesis-style entry recognition, a forced-management rule). Right now it's scored, not staged. If that expansion trade deserves its own explicit trade-numbering and management the way Trade #1's forced exit does, tell me and I'll build it symmetrically — otherwise the asymmetry stands as: one-sided trades are staged events, the two-sided trade is currently conviction-only.
+
+describe both pathwayss
+Architected comprehensive documentation of dual liquidation model mechanics
+The Daily Cycle — Both Pathways
+The master branch question
+
+At day rollover, before anything else, Fable asks one question: is price sitting at external structure, or in the middle of nowhere?
+
+Fab_NearExternal() checks Sydney's high and low against the last external HTF extreme (prior-day/prior-week rollover pools, or the live structural swing — whichever is nearer). Exactly one side aligned → ONE-SIDED model. Neither side aligned (or both, ambiguously) → TWO-SIDED model. This single check, made once at Sydney's window close, decides which of the two pathways below the rest of the day will follow.
+Pathway A — ONE-SIDED liquidation model
+
+Applies when Sydney's tested extreme sits at real external structure — meaning that extreme is already the true one, and price can only go the opposite way.
+
+Direction: decided by the raid itself. The 00:00–01:00 raid spends the aligned side — low raided at external structure → DAY_BULL; high raided at external structure → DAY_BEAR. A raid of the non-aligned side is contradictory evidence and is ignored, not inverted.
+
+Trade #1 — the raid-shift entry (~01:00). The raid is itself a structural shift — order flow just changed. This is a live, named, tradeable window (dayTypeSetBar, evidence floor 0.9 for the first 3 bars). It is ridden through the Sydney/early-Asia session and force-closed at a fixed uncertainty hour (default 06:00 GMT, Fab_GenesisExit()) — win, loss, or scratch, unconditionally — because at that hour the rest of the day's script is genuinely unknown. Holding through the classification stretch is a different, uncalibrated bet the system has no evidence for.
+
+07:00–12:00 — classification, not trading. No named window, no evidence credit. The Asia range is watched: does price continue expanding it, or give it back? This single measurement — net progress at noon, primarily confirmed by whether price retraces through the Asia range's own midline (asiaMid/midlineRetrace) — splits the rest of the day into exactly two scripts.
+
+If CONSERVATIVE (price milled, gave the break back to the midline): Trade #2 is the noon expansion — the mill-then-expand pattern resolves at 12:00, evidence floor 1.0 if the midline actually confirmed the mill, 0.8 if only the fallback threshold did.
+
+If AGGRESSIVE (price kept expanding to noon): the leg from the Asia break to the noon extreme gets its own midline (aggLegMid) — the same law, one session nested inside the first. Trade #2 here is different in kind: the 12:00–15:00 leg is a scripted counter-move, not neutral ground — the counter-direction is the expected trade (day evidence inverts: counter +1.0, aligned −0.3), confirmed against the reversal window. Trade #3 is the 15:00 resumption, evidence floor 1.0 if the counter-leg confirmed at its own midline, 0.6 if not.
+
+Both variants converge from there: expansion runs hard through the evening, window evidence staying live through DC_LATE (~20:00–21:00 GMT), before the close-window hygiene rules take over.
+Pathway B — TWO-SIDED liquidation model
+
+Applies when the open sits diagonally between external structure points — nowhere near either extreme. Both sides of Asia will trade during the day; the first raid is deliberate inducement, not a decision.
+
+Direction: not from a raid — from HTF structural bias (st.externalStruct, falling back to st.trend) — because the raid mechanism doesn't apply when neither side is at real structure. This is read immediately at Sydney's close, before any raid happens.
+
+The inducement sweep. On a bullish two-sided day, Sydney's high — the opposite extreme — gets swept first (tempSet/tempPx), forming a temporary high. This is manipulation, not confirmation, and it is honestly labeled as such: not discarded, but held in reserve as fuel for later. (Bearish days are the exact mirror: Sydney's low sweeps first, forming a temporary low.)
+
+Asia range builds on the opposite side (the low, for a bullish day) as price expands away from the temp extreme. The midline between the temp extreme and this Asia opposite extreme (twoSidedMid) is the expected retrace target around the London open.
+
+London tries to print the real low/high by sweeping the Asia opposite extreme. Whether that sweep is the true low of day depends on the same law used everywhere in this system: does it actually reach external structure?
+
+    If yes — London's sweep IS the true low, confirmed on the spot (trueSet, truePx).
+    If no — deferred. The US session raids London's own range next, and that sweep gets the identical external-structure test. Whichever sweep — London's or the US session's — actually tags real structure is the one that prints the true low. If neither ever does, the day stays honestly unresolved rather than guessing.
+
+The viable trade: once the true low prints, the objective becomes the temporary high from the overnight inducement sweep — the fuel that was held in reserve. Evidence floors at 0.7 the moment the true low confirms, rising to 1.0 once price actually reclaims the temp extreme (reclaimed) — that reclaim is the clean expansion path for the rest of the day.
+
+(Bearish two-sided days: temp low first, Asia high builds, London or the US session tries to print the true high, objective becomes the temp low.)
+The one asymmetry between them
+
+Pathway A stages its trades as discrete, managed events — Trade #1 has a forced exit, Trades #2/#3 are named windows with explicit variant confirmation. Pathway B's expansion trade is currently conviction-scored only, with no equivalent staged management (no forced exit, no explicit trade-numbering in the reflex layer). If the two-sided expansion trade should get the same dedicated treatment — a named stage with its own exit discipline — that's the next thing to build, on your instruction.
+
+two side liquidation models. Normally, the expansion happens until five, six PM. It doesn't really expand till nine PM. The one side liquidation models have harder expansions probably because they're showing that they're strong hands because they're they're they're close to the external structure and protecting, um, protecting Asia. There's more force behind the the expansion pushes, whereas because the two side liquidation models that they actually sort in the middle of nowhere. It's not really against external structure. There is indecision in the market, but, obviously, the indecision gets resolved based on structure and which way the daily candle is gonna be printed. So the expansion happens, but it doesn't expand for as long as the one side liquidation models happen. Obviously, these are generalized rules, but they are pretty consistent across many, uh, many, many trading pairs and instances. I
+Differentiated expansion windows between liquidation model types systematically
+
+Real, useful distinction — asymmetric conviction and asymmetric duration, tied to why the structural strength differs. Wiring both:
+Ran 2 commands, read a file
+
+Shipped — 12,004 lines. Two separate changes, matching the two separate things you described (weaker force and shorter duration are different claims, so they got different code):
+
+Duration. The generic evening baseline (DC_LATE, ~17:00–21:00) is now gated to liqModel==SM_ONE_SIDED only — two-sided days lose that extension entirely and fall back to whatever their own trueSet/reclaim evidence gives them, itself now hard-capped at InpFabTwoSidedExpHr (default 17:00). Past that hour, a two-sided day's expansion gets zero window credit from either mechanism — matching "doesn't really expand till nine PM."
+
+Magnitude. Even within its own active window, two-sided expansion evidence is capped at InpFabTwoSidedCeil (default 0.85) versus the one-sided model's 1.0 ceiling — reclaimed gets 0.85, not-yet-reclaimed gets 0.68. That's the "less force" distinction made structural rather than just temporal: even at its strongest moment, a two-sided day's push can't out-score a one-sided day's defended-structure push.
+
+The causal chain you gave for why this is true is worth restating because it's exactly the kind of thing that should live in a comment, not just a commit message: one-sided expansion is strong hands defending a level they've already proven is real (external structure), so the push has institutional weight behind it. Two-sided expansion is indecision getting resolved — real, but earned through structure rather than defended from strength, so it's shorter and softer. That causal distinction is what justifies two separate parameters rather than one shared "expansion window" constant — they're not the same phenomenon at different strengths, they're different phenomena.
+
+One thing worth naming since you flagged these as generalized-but-consistent rules rather than exact numbers: 17:00 and 0.85 are still defaults, not measured constants — same open-ruling status as everything else in this file. If you've got a sense of the actual typical two-sided cutoff hour (16:00? 18:00?) or how much weaker the push runs versus one-sided in R terms, that's a one-line tune away from being a real number instead of a reasonable guess.
+Fableos allinone
+MQ5 
+
+Now do you think the algo can trade the daily cycle effectively.
+Assessed readiness gap: mechanically sound but empirically unvalidated
+
+Honest answer, as the role requires: mechanically, yes — architecturally, it's complete and coherent. Empirically, it's unproven, and I'd be doing you a disservice claiming otherwise.
+
+Here's the precise line between those two claims:
+
+What's actually solid. The daily cycle is now a real deterministic state machine, not a heuristic bolted onto Symphony. Both pathways branch off one honest measurement (proximity to external structure), every commitment along the way is confirmed the same way — never a raw wick, always a hold-or-reach-real-structure test — and that confirmation law is applied fractally at three nested scales (Sydney/external, Asia-range midline, break-to-noon-leg midline). The two pathways have genuinely different mechanics, not shared code wearing different labels, and that asymmetry is now reflected in evidence conviction and duration, not just direction. Every decision is traceable through the Voice narration to the specific law that produced it. That's the right skeleton for a system that's supposed to be explainable rather than curve-fit.
+
+What stands between that and "trades it effectively," ranked by how much it matters:
+
+    It has never run. Zero compiles, zero backtest bars, zero live ticks. Every static/paren/brace check I've run is necessary but nowhere near sufficient — MQL5's actual compiler hasn't touched this, and no amount of my verification substitutes for that. This is the blocking item, not a nice-to-have.
+    GMT offset is still the unresolved ruling it's been since Wave 1. Every hour boundary in this entire daily-cycle system — the raid window, London, NY-cross, the genesis exit hour, the noon variant classification, the new two-sided expansion cutoff — inherits from InpFabGMTOffset=0. If that's wrong by even an hour, the whole cycle is silently reading the wrong candles at every named trade simultaneously. This is the single highest-leverage thing to fix before anything else, because every other number in the system is downstream of it.
+    Sample size is thin by construction, and I haven't accounted for it correctly yet. This isn't a per-bar or per-setup event — it's once a day, and it branches: one-sided vs two-sided, bull vs bear, aggressive vs conservative, which of four-or-five named trades. Even a full year of backtest gives you maybe 60–70 instances of any single specific sub-path. The Immune Protocol's own ≥20-sample, two-window promotion rule — which is supposed to be the thing that tells you whether a gate has earned trust — will take a long time to accumulate real signal at this event frequency. Trusting Day mode at Enforce before that sample exists is exactly the mistake we already found once (Day mode was hurting, and the reason turned out to be structural, not just data-starved — but data starvation is a second, independent risk sitting underneath it).
+    The audit can't yet tell you which of the five trades is actually working. This is a real gap I should name rather than let you discover later: genesisTrade is tracked as a single bool on the audit record, but Trade #2-conservative, Trade #2/#3-aggressive, and the two-sided expansion trade aren't separately tagged. The immune ledger scores the Day gate as one lump. That means right now the system can tell you "day-awareness overall helps or hurts" but not "Trade #1 is profitable and Trade #3 is bleeding" — which is the actual question a Chief Research Scientist needs answered before trusting any of it at Enforce. This is the most valuable next piece of instrumentation, and it's a contained change: add a tradeStage enum to the audit record and give each stage its own counterfactual ledger, the same pattern already built for the four gates.
+    The external-structure proxy has been validated qualitatively against two real charts, not statistically. That's real evidence, not nothing — but two charts confirming the shape of the rule is different from the tolerance constants (extTolATR, the noon threshold, the two-sided expansion hour and ceiling) being calibrated against enough instances to trust the numbers rather than just the logic.
+
+So: can it trade the daily cycle effectively? It can trade the daily cycle as specified — every rule you've described has a corresponding, correct code path. Whether that specification is itself effective in the market is a claim only a compile-and-run cycle can support, and right now that cycle hasn't happened once. My recommendation, in order: fix the GMT offset first, add the per-trade-stage audit breakdown second (I can build that now if you want it before the first run), then compile and run the tester — and let the immune ledger, broken down by named trade, tell us which parts of this earned their place before any of it touches size at Enforce.
